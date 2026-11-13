@@ -107,9 +107,10 @@ and updates widgets only through `GLib.idle_add`.
 
 - G533: battery read confirmed on the real headset (2026-11-13), and its HID
   descriptor declares both report formats used here (output `0x11` 19 bytes,
-  feature `0xff` 63 bytes). Sidetone and auto-off writes are still untried.
+  feature `0xff` 63 bytes). Sidetone confirmed working by the user; the auto-off
+  write is still unconfirmed.
 - G305: reading confirmed on the real mouse (2026-11-13): battery level, four DPI
-  steps, polling rate. Writing (Apply) is still untried.
+  steps, polling rate. Writing (Apply) confirmed working by the user the same day.
 - ratbagd 0.17 only probes mice at start-up or receiver plug-in (confirmed: a mouse
   switched on later was invisible until ratbagd was restarted). `install.sh` adds
   `/etc/udev/rules.d/70-g305-ratbagd.rules`, which restarts ratbagd when the kernel
@@ -119,3 +120,97 @@ and updates widgets only through `GLib.idle_add`.
   headset is driven directly.
 - `Commit()` writes to the mouse's onboard memory. A wrong value is recoverable
   (re-apply, or reset in G Hub on Windows) but it is a hardware write.
+
+## Round 2 (2026-11-13): more device features and a new interface
+
+Added, all confirmed against the real devices for reading; see "Not yet tried" for writes.
+
+| Device | Feature | How |
+|---|---|---|
+| G305 | Assign each of the 6 buttons: click, back/forward, DPI actions, scroll left/right, a key or shortcut, or off | ratbagd `Button.Mapping` (`(uv)`), `Button.Disable()` |
+| G305 | Choose the DPI step the mouse starts with | ratbagd `Resolution.SetDefault()` |
+| G533 | Volume and microphone level | `wpctl` on the headset's PipeWire nodes (found with `pw-dump`) |
+| G533 | 10-band equalizer with presets | PipeWire filter-chain drop-in, `eq.py` |
+
+- **Buttons.** Only actions the G305's onboard memory understands are offered (libratbag's
+  `hidpp20_profiles_specials`). A keyboard assignment is sent as a press/release macro, which
+  libratbag stores as key + modifiers. Apply refuses to leave the mouse without a Left click.
+- **Not offered: adding or removing DPI steps.** ratbagd 0.17 can switch a step on but never off
+  again (0 is not an accepted DPI), so it would be a one-way change.
+- **Equalizer.** PipeWire already ships and runs `filter-chain.service` for the user. `eq.py`
+  writes `~/.config/pipewire/filter-chain.conf.d/ghub-lite-eq.conf`, restarts only that service
+  (other audio keeps playing), waits for the sink `ghub_lite_eq`, and makes it the default output.
+  Gains change live through `pw-cli set-param`; the file is rewritten so they survive a login.
+  Turning it off deletes the file and makes the real headset the default output again.
+  Verified on the real headset: routing, live gain changes, clean switch-off.
+- **Not built: surround sound** (needs an HRIR measurement file that is not on the system) and
+  **the headset's G button** (no known open protocol).
+
+### Interface
+
+Dark blue-graphite surfaces, one accent per device (orchid for the mouse, mint for the headset),
+hand-drawn cairo pictures in `art.py` (no vendor artwork), Michroma for device names and DPI
+numbers. Home shows one stage per device; a stage opens the device page with a slide. The mouse
+page has a DPI rail, and the Apply bar slides up only while there are unsaved changes.
+
+- `style.css` is loaded above USER priority and sets `background-image` as well as colours:
+  the Zorin theme loads there and paints sliders/radios with a hardcoded image colour.
+- Below 720 px wide the side picture on a device page is dropped and the home stages stack.
+
+### Files added
+
+```
+art.py       cairo pictures of both devices and the DPI rail
+audio.py     headset volume/microphone through wpctl and pw-dump
+eq.py        the equalizer (see above); `python3 eq.py on|off|status`
+style.css    the look
+test_eq.py   equalizer self-check (pure logic)
+test_ui.py   drives the whole window with stand-in devices; run ./test_ui.sh
+test_ui.sh   runs it in GTK's headless Broadway display; add a folder name to save pictures
+macros.py    macro helper service and the macro encoding (round 3)
+```
+
+### Not yet tried on real hardware
+
+- Saving the start-up DPI step to the mouse (same commit path as button assignments, which
+  the user confirmed working on the real mouse on 2026-11-13).
+- Volume and microphone sliders from the window (the underlying `wpctl` calls are standard).
+- The equalizer from the window (the backend was exercised directly with `eq.py`).
+
+### Delegation note
+
+The equalizer backend was briefed to agy first. Headless `agy --print` auto-denied its own
+command permission and produced nothing; it only runs with `--dangerously-skip-permissions`.
+The backend was then written directly.
+
+## Round 3 (2026-11-13): custom-buttons switch, macros, Cinematic profile
+
+- **Custom buttons switch** (Buttons tab). Off writes the stock assignments to the mouse; on writes
+  the user's set. The set is kept in `~/.config/ghub-lite.json` (`buttons`) so it survives being
+  off. The switch itself is not stored: it shows on whenever the mouse holds anything but the
+  stock set. This is not G Hub's G Shift (a second layer while a button is held): ratbagd 0.17
+  does not expose the mouse's second layer.
+- **Macros.** ratbagd 0.17 never writes a real macro to an onboard-profile mouse: a "macro"
+  mapping is reduced to one key plus modifiers (`hidpp20drv_update_button_8100`). So a macro
+  button is stored in the mouse as a spare key, F14-F19 (one per button; not F13, which GNOME
+  binds to Settings), and `macros.py` runs as the user service `ghub-lite-macros.service`: it
+  reads the G305's input node and types the recorded keys through `/dev/uinput`. The recorded
+  keys live in the settings file (`macros`), read on every press.
+  - `install.sh` adds `/etc/udev/rules.d/70-ghub-lite-macros.rules` (logged-in user may read the
+    G305's event node and write `/dev/uinput`) and installs and starts the service.
+  - Replay uses one fixed 30 ms gap between key events, not the typed timing. Esc ends a
+    recording, so it cannot be part of a macro. At most 100 events. No repeat-while-held.
+  - The focused program also sees the spare key itself (F14-F19) just before the macro.
+- **Cinematic profile** (headset). A Profile row: "My settings" or "Cinematic". Cinematic turns
+  the equalizer on with the new Cinematic preset (+5 +4 +2 -1 -2 0 +2 +3 +2 +1 dB), sets
+  sidetone to 0 and switch-off to 30 minutes. The values it replaces are kept (`mine`) and put
+  back by "My settings". The curve is a judgement, not a measurement of this headset.
+- Both pages now share one settings dict; before, each page would have overwritten the other's keys.
+
+### Not yet tried on real hardware (round 3)
+
+- Macros were confirmed working by the user on the real mouse (2026-11-13), after install.sh.
+- The Cinematic profile from the window (its parts use the calls confirmed in round 2).
+- `icon.svg` is the app icon (original artwork). The launcher sets `StartupWMClass=local.ghublite`
+  so the dock shows it for the running window. Home cards show the mouse's current DPI and the
+  headset's profile. The scroll wheel never changes a slider or number under the pointer.

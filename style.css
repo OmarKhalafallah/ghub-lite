@@ -1,0 +1,65 @@
+/* G Hub Lite. Blue-graphite surfaces; each device has its own accent:
+   orchid for the mouse, mint for the headset. */
+@define-color ink #11141b;
+@define-color deck #191e29;
+@define-color ridge #2a3142;
+@define-color chalk #e9edf5;
+@define-color fog #8b95a9;
+@define-color orchid #c58bff;
+@define-color mint #5fe3b9;
+
+@define-color window_bg_color @ink;
+@define-color window_fg_color @chalk;
+@define-color view_bg_color @ink;
+@define-color view_fg_color @chalk;
+@define-color headerbar_bg_color @ink;
+@define-color headerbar_backdrop_color @ink;
+@define-color headerbar_fg_color @chalk;
+@define-color card_bg_color @deck;
+@define-color popover_bg_color #1f2533;
+@define-color dialog_bg_color #1a1f2a;
+@define-color accent_color @orchid;
+@define-color accent_bg_color @orchid;
+@define-color accent_fg_color #17111f;
+
+.dim { color: @fog; }
+.device-name { font-family: "Michroma", "Inter", sans-serif; font-size: 21px; letter-spacing: 1px; color: @chalk; }
+.dpi-value { font-family: "Michroma", "Inter", sans-serif; font-size: 13px; font-feature-settings: "tnum"; min-width: 58px; }
+
+/* home: one stage per device */
+button.stage {
+  background: @deck; border: 1px solid @ridge; border-radius: 22px; padding: 24px;
+  box-shadow: none; transition: border-color 160ms ease, background-color 160ms ease;
+}
+button.stage:hover { background: #1d2330; }
+button.stage.mouse:hover, button.stage.mouse:focus-visible { border-color: @orchid; }
+button.stage.headset:hover, button.stage.headset:focus-visible { border-color: @mint; }
+
+.art-pane { background: @deck; border-right: 1px solid @ridge; }
+.apply-bar { padding: 10px 18px; background: @deck; border-top: 1px solid @ridge; }
+.rail { background: @deck; border: 1px solid @ridge; border-radius: 12px; }
+
+levelbar.battery trough { min-height: 6px; border-radius: 3px; background: @ridge; border: none; padding: 0; }
+levelbar.battery block { border: none; border-radius: 3px; }
+levelbar.battery block.filled { background: @orchid; }
+levelbar.battery block.filled.low { background: @error_bg_color; }
+levelbar.battery block.empty { background: transparent; }
+
+.eq-bands { padding: 14px 6px 10px; background: @deck; border: 1px solid @ridge; border-radius: 12px; }
+.eq-bands label { font-size: 11px; color: @fog; font-feature-settings: "tnum"; }
+
+/* Accent-coloured controls. The Zorin theme paints these with a hardcoded background-image,
+   so each rule sets the image too, not only the colour. Orchid on the mouse, mint on the headset. */
+scale > trough > slider { background-color: #f3f5f9; background-image: none; }
+.mouse scale > trough > highlight { background-color: @orchid; background-image: image(@orchid); }
+.headset scale > trough > highlight { background-color: @mint; background-image: image(@mint); }
+.mouse radio:checked { background-color: @orchid; background-image: image(@orchid); color: #17111f; }
+.mouse .linked > button:checked { background-color: @orchid; background-image: image(@orchid); color: #17111f; }
+.mouse button.suggested-action { background-color: @orchid; background-image: image(@orchid); color: #17111f; }
+.mouse switch:checked { background-color: @orchid; background-image: image(@orchid); }
+.headset switch:checked { background-color: @mint; background-image: image(@mint); }
+.mouse switch:checked > slider { background-color: #17111f; background-image: none; }
+.headset switch:checked > slider { background-color: #0f1a17; background-image: none; }
+levelbar.battery block.filled { background-image: none; }
+.headset levelbar.battery block.filled { background-color: @mint; }
+.headset levelbar.battery block.filled.low { background-color: @error_bg_color; }
